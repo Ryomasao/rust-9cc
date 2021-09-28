@@ -1,7 +1,13 @@
-# rust素振りのために9cc再入門
+# rust 素振りのために 9cc 再入門
 
 ## 環境
 
-こちらをforkして利用している。
+こちらを fork して利用している。
 
 https://github.com/microsoft/vscode-remote-try-rust
+
+## Command
+
+```
+cargo run test.c
+```

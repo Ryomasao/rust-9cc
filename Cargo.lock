@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "rust-9cc"
+name = "rust9cc"
 version = "0.1.0"
