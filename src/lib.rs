@@ -1,22 +1,24 @@
 use std::env;
 use std::error;
-use std::fmt::Write as FmtWrite;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
-#[derive(Debug)]
-pub struct Config {
-	pub entry: String,
-	pub dist: String,
-}
+mod codegen;
+mod parse;
 
 // 組み込みのエラーはいろいろ存在していて、1関数内に複数エラーの型が存在していると
 // 返り値の型をどうしていいのかわからなくなる。
 // これの対応として返り値はErrorトレイトを実装している型っていうふうに表現することができる。
 // が、Rustは返り値の型がトレイトだとHeapに値を保存するしかないので、Box化してheapに保存することを明示するdynをつけるんだって
 // https://doc.rust-jp.rs/rust-by-example-ja/trait/dyn.html
-type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
+pub type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
+
+#[derive(Debug)]
+pub struct Config {
+	pub entry: String,
+	pub dist: String,
+}
 
 // 今回のエラー処理だと、出力されるエラー情報がうすいので、どっかでこちらのパッケージを利用した方法を参考にさせていただこう。
 // https://cha-shu00.hatenablog.com/entry/2020/12/08/060000#f-243e672f
@@ -69,33 +71,106 @@ pub fn run(config: &Config) -> Result<()> {
 	f.read_to_string(&mut contents)?;
 	println!("contents:{}", contents);
 
+	let tokens = tokenize(&contents);
+
+	// 構文木作成
+	let nodes = parse::parse(tokens);
+
 	//
 	// コンパイル処理
 	//
-	let mut compiled = String::new();
-	compiled = builder(compiled)?;
-	println!("compiled:\n{}", compiled);
+	let result = codegen::codegen(nodes)?;
+	println!("compiled:\n{}", result);
 
 	//
 	// コンパイル結果を出力
 	//
-	output(&compiled, &config)?;
+	output(&result, &config)?;
 	Ok(())
 }
 
-fn builder(mut s: String) -> Result<String> {
-	s.push_str(".intel_syntax noprefix\n");
-	s.push_str(".globl main\n");
+enum CharType {
+	Whitespace,
+	Num(char),
+	//Alphabetic(char),
+	NonAlphabetic(char),
+}
 
-	s.push_str("main:\n");
-	// https://doc.rust-lang.org/std/macro.write.html
-	// format!マクロで文字列を生成すると、生成した文字列をヒープに書き込んだ後
-	// sのヒープにコピーして、生成した文字列をdropすることになる
-	// writeを使えば、sのヒープに直接formatした文字列を書き込めるってことかな
-	// https://users.rust-lang.org/t/how-do-i-push-str-the-contents-of-a-variable/45594/6
-	write!(&mut s, "  mov rax, {}\n", 12)?;
-	s.push_str("  ret\n");
-	Ok(s)
+impl CharType {
+	fn new(c: char) -> CharType {
+		if c.is_ascii_whitespace() {
+			return CharType::Whitespace;
+		}
+
+		if c.is_ascii_digit() {
+			return CharType::Num(c);
+		}
+
+		//if c.is_ascii_alphabetic() {
+		//	return CharType::Alphabetic(c);
+		//}
+
+		CharType::NonAlphabetic(c)
+	}
+}
+
+#[derive(Debug)]
+enum TokenKind {
+	Plus,     // +
+	Minus,    // +
+	Num(i32), // 整数
+}
+
+impl TokenKind {
+	fn new_single_letter(c: char) -> Option<Self> {
+		match c {
+			'+' => Some(TokenKind::Plus),
+			'-' => Some(TokenKind::Minus),
+			_ => None,
+		}
+	}
+}
+
+#[derive(Debug)]
+pub struct Token {
+	kind: TokenKind,
+}
+
+impl Token {
+	fn new(kind: TokenKind) -> Self {
+		Token { kind }
+	}
+}
+
+fn tokenize(s: &String) -> Vec<Token> {
+	let mut tokens = Vec::new();
+	for c in s.chars() {
+		let c = CharType::new(c);
+		match c {
+			CharType::Whitespace => {
+				continue;
+			}
+			//CharType::Alphabetic(c) => {
+			//}
+			CharType::Num(c) => {
+				// これでいいのかふあん
+				// char to i32
+				let val = c.to_digit(10).unwrap() as i32;
+				let token = Token::new(TokenKind::Num(val));
+				tokens.push(token);
+			}
+			CharType::NonAlphabetic(c) => {
+				if let Some(token_kind) = TokenKind::new_single_letter(c) {
+					let token = Token::new(token_kind);
+					tokens.push(token);
+					continue;
+				}
+				// 存在しない記号
+				panic!("知らない記号:{}", c);
+			}
+		}
+	}
+	tokens
 }
 
 fn output(s: &str, config: &Config) -> Result<()> {

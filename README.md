@@ -6,8 +6,16 @@
 
 https://github.com/microsoft/vscode-remote-try-rust
 
+## 教科書
+
+- 9cc
+
+https://www.sigbus.info/compilerbook
+
+- rust + 9cc
+
+https://github.com/utam0k/r9cc
+
 ## Command
 
-```
-cargo run test.c
-```
+TODO
