@@ -5,6 +5,8 @@ use std::process;
 use rust9cc::run;
 use rust9cc::Config;
 
+// cargo run entry dist
+
 fn main() {
     // Configパースが必要になったら復活する
     //let config = Config::new(env::args()).unwrap_or_else(|err| {

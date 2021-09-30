@@ -1,11 +1,14 @@
-use std::env;
 use std::error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
 mod codegen;
+mod config;
 mod parse;
+
+// pubをつけるとreexport的なかんじ
+pub use config::Config;
 
 // 組み込みのエラーはいろいろ存在していて、1関数内に複数エラーの型が存在していると
 // 返り値の型をどうしていいのかわからなくなる。
@@ -13,46 +16,6 @@ mod parse;
 // が、Rustは返り値の型がトレイトだとHeapに値を保存するしかないので、Box化してheapに保存することを明示するdynをつけるんだって
 // https://doc.rust-jp.rs/rust-by-example-ja/trait/dyn.html
 pub type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
-
-#[derive(Debug)]
-pub struct Config {
-	pub entry: String,
-	pub dist: String,
-}
-
-// 今回のエラー処理だと、出力されるエラー情報がうすいので、どっかでこちらのパッケージを利用した方法を参考にさせていただこう。
-// https://cha-shu00.hatenablog.com/entry/2020/12/08/060000#f-243e672f
-// 尚、序盤の独自エラー型は、公式exampleに掲載されてる
-// https://doc.rust-jp.rs/rust-by-example-ja/error/multiple_error_types/wrap_error.html
-// 組み込みErrorを独自エラー型に変換するのがめんどくさそうね
-
-impl<'a> Config {
-	// @MEMO デフォルトパラメータみたいなことができれば
-	// @MEMO const値なんだけど、ライフライムを指定する意味はあるのかな
-	const DEFAULT_ENTRY: &'a str = "tmp.c";
-	const DEFAULT_DIST: &'a str = "tmp.s";
-
-	pub fn new(mut args: env::Args) -> Config {
-		args.next();
-		// @MEMO lenってnextイテレータすすめると減るのかな
-		//if args.len() != 2 {
-		//	return Err("引数の数が間違ってるよ".into());
-		//}
-
-		let entry = match args.next() {
-			Some(args) => args,
-			// @MEMO Copyになるけどいいかな
-			None => Self::DEFAULT_ENTRY.to_string(),
-		};
-
-		let dist = match args.next() {
-			Some(args) => args,
-			None => Self::DEFAULT_DIST.to_string(),
-		};
-
-		Config { entry, dist }
-	}
-}
 
 pub fn run(config: &Config) -> Result<()> {
 	//
@@ -69,18 +32,20 @@ pub fn run(config: &Config) -> Result<()> {
 	let mut f = File::open(&config.entry)?;
 	let mut contents = String::new();
 	f.read_to_string(&mut contents)?;
-	println!("contents:{}", contents);
+	//println!("contents:{}", contents);
 
 	let tokens = tokenize(&contents);
 
+	//
 	// 構文木作成
+	//
 	let nodes = parse::parse(tokens);
 
 	//
 	// コンパイル処理
 	//
-	let result = codegen::codegen(nodes)?;
-	println!("compiled:\n{}", result);
+	let result = codegen::codegen(nodes);
+	//println!("compiled:\n{}", result);
 
 	//
 	// コンパイル結果を出力
@@ -114,11 +79,16 @@ impl CharType {
 	}
 }
 
-#[derive(Debug)]
-enum TokenKind {
-	Plus,     // +
-	Minus,    // +
-	Num(i32), // 整数
+#[derive(PartialEq, Debug)]
+pub enum TokenKind {
+	Plus,       // +
+	Minus,      // +
+	Mul,        // *
+	Div,        // /
+	Num(i32),   // 整数
+	LeftParen,  // (
+	RightParen, // )
+	EOF,        // トークンの終端
 }
 
 impl TokenKind {
@@ -126,6 +96,10 @@ impl TokenKind {
 		match c {
 			'+' => Some(TokenKind::Plus),
 			'-' => Some(TokenKind::Minus),
+			'*' => Some(TokenKind::Mul),
+			'/' => Some(TokenKind::Div),
+			'(' => Some(TokenKind::LeftParen),
+			')' => Some(TokenKind::RightParen),
 			_ => None,
 		}
 	}
@@ -139,6 +113,16 @@ pub struct Token {
 impl Token {
 	fn new(kind: TokenKind) -> Self {
 		Token { kind }
+	}
+
+	fn new_eof() -> Self {
+		Token {
+			kind: TokenKind::EOF,
+		}
+	}
+
+	fn bad_token(&self, msg: &str) -> ! {
+		panic!("{}", msg);
 	}
 }
 
@@ -170,6 +154,7 @@ fn tokenize(s: &String) -> Vec<Token> {
 			}
 		}
 	}
+	tokens.push(Token::new_eof());
 	tokens
 }
 
