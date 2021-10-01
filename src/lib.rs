@@ -3,6 +3,12 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
+// modとuseの違いがわからなくなったでござる
+// 利用するときはuse。子は親をしってるけど、親は子を知らないってことかな。
+// 親から利用する場合はmodで読み込んでuseかしら。
+// codegenの中でmod fooとした場合、rustはcodegen/foo.rsを期待してるっぽい
+// main.rsとlib.rsの場合は同じ階層のファイルをmodで参照するっぽ
+
 mod codegen;
 mod config;
 mod parse;

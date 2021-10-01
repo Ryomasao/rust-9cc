@@ -41,6 +41,26 @@ pub fn gen(code: &mut String, node: Node) -> &String {
 					write!(code, "  cqo\n").unwrap();
 					write!(code, "  idiv rdi\n").unwrap()
 				}
+				TokenKind::EQ => {
+					write!(code, "  cmp rax, rdi\n").unwrap();
+					write!(code, "  sete al\n").unwrap();
+					write!(code, "  movzb rax, al\n").unwrap();
+				}
+				TokenKind::LE => {
+					write!(code, "  cmp rax, rdi\n").unwrap();
+					write!(code, "  setle al\n").unwrap();
+					write!(code, "  movzb rax, al\n").unwrap();
+				}
+				TokenKind::LeftAngleBracket => {
+					write!(code, "  cmp rax, rdi\n").unwrap();
+					write!(code, "  setle al\n").unwrap();
+					write!(code, "  movzb rax, al\n").unwrap();
+				}
+				TokenKind::NEQ => {
+					write!(code, "  cmp rax, rdi\n").unwrap();
+					write!(code, "  setne al\n").unwrap();
+					write!(code, "  movzb rax, al\n").unwrap();
+				}
 				_ => panic!("unexpected token kind"),
 			}
 		}

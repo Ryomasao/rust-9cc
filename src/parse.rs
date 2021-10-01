@@ -59,8 +59,43 @@ impl Parser {
 	}
 
 	fn expr(&mut self) -> Node {
-		let mut node = self.mul();
+		self.equality()
+	}
 
+	fn equality(&mut self) -> Node {
+		let mut node = self.relational();
+		loop {
+			if self.consume(TokenKind::EQ) {
+				node = Node::new_binop(TokenKind::EQ, node, self.relational())
+			} else if self.consume(TokenKind::NEQ) {
+				node = Node::new_binop(TokenKind::NEQ, node, self.relational())
+			} else {
+				return node;
+			}
+		}
+	}
+
+	fn relational(&mut self) -> Node {
+		let mut node = self.add();
+		loop {
+			if self.consume(TokenKind::LE) {
+				node = Node::new_binop(TokenKind::LE, node, self.add())
+			} else if self.consume(TokenKind::LeftAngleBracket) {
+				node = Node::new_binop(TokenKind::LeftAngleBracket, node, self.add())
+			} else if self.consume(TokenKind::RE) {
+				// > → <
+				node = Node::new_binop(TokenKind::LE, self.add(), node)
+			} else if self.consume(TokenKind::RightAngleBracket) {
+				// >= → <=
+				node = Node::new_binop(TokenKind::LeftAngleBracket, self.add(), node)
+			} else {
+				return node;
+			}
+		}
+	}
+
+	fn add(&mut self) -> Node {
+		let mut node = self.mul();
 		loop {
 			if self.consume(TokenKind::Plus) {
 				node = Node::new_binop(TokenKind::Plus, node, self.mul())
@@ -127,7 +162,7 @@ pub fn parse(tokens: Vec<Token>) -> Vec<Node> {
 		nodes.push(parser.expr());
 	}
 
-	println!("{:#?}", nodes);
+	//println!("{:#?}", nodes);
 
 	nodes
 }

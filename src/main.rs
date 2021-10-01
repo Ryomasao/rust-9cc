@@ -21,3 +21,12 @@ fn main() {
         process::exit(1);
     }
 }
+
+#[test]
+fn playground() {
+    let chars: Vec<char> = "abc".chars().collect();
+    println!("char:{:?}", chars);
+    println!("slice:{:?}", &chars[0..2]);
+    let string = &chars[0..2].iter().collect::<String>();
+    assert_eq!(1, 1);
+}
