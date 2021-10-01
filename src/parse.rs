@@ -1,4 +1,4 @@
-use crate::{Token, TokenKind};
+use crate::token::{Token, TokenKind};
 
 #[derive(Debug)]
 pub enum NodeKind {
@@ -73,17 +73,31 @@ impl Parser {
 	}
 
 	fn mul(&mut self) -> Node {
-		let mut node = self.primary();
+		let mut node = self.unary();
 
 		loop {
 			if self.consume(TokenKind::Mul) {
-				node = Node::new_binop(TokenKind::Mul, node, self.primary());
+				node = Node::new_binop(TokenKind::Mul, node, self.unary());
 			} else if self.consume(TokenKind::Div) {
-				node = Node::new_binop(TokenKind::Div, node, self.primary());
+				node = Node::new_binop(TokenKind::Div, node, self.unary());
 			} else {
 				return node;
 			}
 		}
+	}
+
+	// 単項目
+	fn unary(&mut self) -> Node {
+		// +xの場合は、ただのxにする
+		if self.consume(TokenKind::Plus) {
+			return self.primary();
+		}
+		// -xの場合は、0 - xにする
+		if self.consume(TokenKind::Minus) {
+			return Node::new_binop(TokenKind::Minus, Node::new_num(0), self.primary());
+		}
+
+		self.primary()
 	}
 
 	fn primary(&mut self) -> Node {
@@ -113,7 +127,7 @@ pub fn parse(tokens: Vec<Token>) -> Vec<Node> {
 		nodes.push(parser.expr());
 	}
 
-	//println!("{:#?}", nodes);
+	println!("{:#?}", nodes);
 
 	nodes
 }

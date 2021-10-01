@@ -1,7 +1,7 @@
 use std::fmt::Write as FmtWrite;
 
 use crate::parse::{Node, NodeKind};
-use crate::TokenKind;
+use crate::token::TokenKind;
 
 pub fn codegen(nodes: Vec<Node>) -> String {
 	let mut s = String::new();

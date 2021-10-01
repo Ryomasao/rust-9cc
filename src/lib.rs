@@ -6,9 +6,11 @@ use std::path::Path;
 mod codegen;
 mod config;
 mod parse;
+mod token;
 
 // pubをつけるとreexport的なかんじ
 pub use config::Config;
+use token::Tokenizer;
 
 // 組み込みのエラーはいろいろ存在していて、1関数内に複数エラーの型が存在していると
 // 返り値の型をどうしていいのかわからなくなる。
@@ -34,7 +36,8 @@ pub fn run(config: &Config) -> Result<()> {
 	f.read_to_string(&mut contents)?;
 	//println!("contents:{}", contents);
 
-	let tokens = tokenize(&contents);
+	let mut tokenizer = Tokenizer::new(&contents);
+	let tokens = tokenizer.generate();
 
 	//
 	// 構文木作成
@@ -42,18 +45,19 @@ pub fn run(config: &Config) -> Result<()> {
 	let nodes = parse::parse(tokens);
 
 	//
-	// コンパイル処理
+	// アセンブリに変換
 	//
 	let result = codegen::codegen(nodes);
 	//println!("compiled:\n{}", result);
 
 	//
-	// コンパイル結果を出力
+	// 出力
 	//
 	output(&result, &config)?;
 	Ok(())
 }
 
+#[derive(Debug)]
 enum CharType {
 	Whitespace,
 	Num(char),
@@ -77,85 +81,6 @@ impl CharType {
 
 		CharType::NonAlphabetic(c)
 	}
-}
-
-#[derive(PartialEq, Debug)]
-pub enum TokenKind {
-	Plus,       // +
-	Minus,      // +
-	Mul,        // *
-	Div,        // /
-	Num(i32),   // 整数
-	LeftParen,  // (
-	RightParen, // )
-	EOF,        // トークンの終端
-}
-
-impl TokenKind {
-	fn new_single_letter(c: char) -> Option<Self> {
-		match c {
-			'+' => Some(TokenKind::Plus),
-			'-' => Some(TokenKind::Minus),
-			'*' => Some(TokenKind::Mul),
-			'/' => Some(TokenKind::Div),
-			'(' => Some(TokenKind::LeftParen),
-			')' => Some(TokenKind::RightParen),
-			_ => None,
-		}
-	}
-}
-
-#[derive(Debug)]
-pub struct Token {
-	kind: TokenKind,
-}
-
-impl Token {
-	fn new(kind: TokenKind) -> Self {
-		Token { kind }
-	}
-
-	fn new_eof() -> Self {
-		Token {
-			kind: TokenKind::EOF,
-		}
-	}
-
-	fn bad_token(&self, msg: &str) -> ! {
-		panic!("{}", msg);
-	}
-}
-
-fn tokenize(s: &String) -> Vec<Token> {
-	let mut tokens = Vec::new();
-	for c in s.chars() {
-		let c = CharType::new(c);
-		match c {
-			CharType::Whitespace => {
-				continue;
-			}
-			//CharType::Alphabetic(c) => {
-			//}
-			CharType::Num(c) => {
-				// これでいいのかふあん
-				// char to i32
-				let val = c.to_digit(10).unwrap() as i32;
-				let token = Token::new(TokenKind::Num(val));
-				tokens.push(token);
-			}
-			CharType::NonAlphabetic(c) => {
-				if let Some(token_kind) = TokenKind::new_single_letter(c) {
-					let token = Token::new(token_kind);
-					tokens.push(token);
-					continue;
-				}
-				// 存在しない記号
-				panic!("知らない記号:{}", c);
-			}
-		}
-	}
-	tokens.push(Token::new_eof());
-	tokens
 }
 
 fn output(s: &str, config: &Config) -> Result<()> {
