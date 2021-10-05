@@ -9,10 +9,26 @@ pub fn codegen(nodes: Vec<Node>) -> String {
 	s.push_str(".globl main\n");
 
 	s.push_str("main:\n");
+
+	// プロローグ
+	// 変数割当に関しての過去の記憶
+	// https://github.com/Ryomasao/9cc/blob/master/src/lvar.s
+	s.push_str("  # prologue start\n");
+	s.push_str("  push rbp\n");
+	s.push_str("  mov rbp, rsp\n");
+	s.push_str("  sub rsp, 208\n");
+	s.push_str("  # prologue end\n");
+
 	for node in nodes {
 		gen(&mut s, node);
+		s.push_str("  # 式の評価結果がスタックから溢れないようにする\n");
+		s.push_str("  pop rax\n");
 	}
-	s.push_str("  pop rax\n");
+
+	// エピローグ
+	s.push_str("  # epilogue\n");
+	s.push_str("  mov rsp, rbp\n");
+	s.push_str("  pop rbp\n");
 	s.push_str("  ret\n");
 	s
 }
@@ -73,9 +89,31 @@ pub fn gen(code: &mut String, node: Node) -> &String {
 			write!(code, "  push {}\n", v).unwrap();
 			return code;
 		}
+		NodeKind::Assign(lhs, rhs) => {
+			// =の場合、左辺値は必ず変数
+			if let NodeKind::Lvar(_, _) = lhs.kind {
+				gen(code, *lhs);
+			} else {
+				panic!("unexpected node: {:?}", lhs)
+			}
+
+			gen(code, *rhs);
+
+			write!(code, "  pop rdi\n").unwrap();
+			write!(code, "  pop rax\n").unwrap();
+			write!(code, "  mov [rax], rdi\n").unwrap();
+			write!(code, "  push rdi\n").unwrap();
+			return code;
+		}
+		NodeKind::Lvar(_, offset) => {
+			write!(code, "  mov rax, rbp\n").unwrap();
+			write!(code, "  sub rax, {}\n", offset).unwrap();
+			write!(code, "  push rax\n").unwrap();
+			return code;
+		}
 	}
 
-	// このコードはNumのときには実行してない
+	// このコードは今の所BinOpときだけ実行してる
 	write!(code, "  push rax\n").unwrap();
 
 	code

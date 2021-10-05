@@ -4,6 +4,9 @@ use crate::token::{Token, TokenKind};
 pub enum NodeKind {
 	Num(i32),
 	BinOp(TokenKind, Box<Node>, Box<Node>),
+	// BinOpとは区別することにした
+	Assign(Box<Node>, Box<Node>),
+	Lvar(char, usize), // 左辺値 変数名 offsett
 }
 
 #[derive(Debug)]
@@ -22,6 +25,16 @@ impl Node {
 
 	fn new_binop(token_kind: TokenKind, lhs: Node, rhs: Node) -> Self {
 		Self::new(NodeKind::BinOp(token_kind, Box::new(lhs), Box::new(rhs)))
+	}
+
+	fn new_ident(c: char) -> Self {
+		// 変数名は1文字で、RBPからのオフセットを文字に応じて固定にしとく
+		let offset = (c as usize - 'a' as usize + 1) * 8;
+		Self::new(NodeKind::Lvar(c, offset))
+	}
+
+	fn new_assign(lhs: Node, rhs: Node) -> Self {
+		Self::new(NodeKind::Assign(Box::new(lhs), Box::new(rhs)))
 	}
 }
 
@@ -58,8 +71,22 @@ impl Parser {
 		self.pos += 1;
 	}
 
+	fn stmt(&mut self) -> Node {
+		let node = self.expr();
+		self.expect(TokenKind::SemiColon);
+		node
+	}
+
 	fn expr(&mut self) -> Node {
-		self.equality()
+		self.assign()
+	}
+
+	fn assign(&mut self) -> Node {
+		let node = self.equality();
+		if self.consume(TokenKind::Assign) {
+			return Node::new_assign(node, self.assign());
+		}
+		node
 	}
 
 	fn equality(&mut self) -> Node {
@@ -146,8 +173,12 @@ impl Parser {
 				self.expect(TokenKind::RightParen);
 				node
 			}
+			// https://doc.rust-jp.rs/book-ja/ch18-03-pattern-syntax.html?highlight=ref#ref%E3%81%A8ref-mut%E3%81%A7%E3%83%91%E3%82%BF%E3%83%BC%E3%83%B3%E3%81%AB%E5%8F%82%E7%85%A7%E3%82%92%E7%94%9F%E6%88%90%E3%81%99%E3%82%8B
+			// Stringの場合、matchした値の所有権が移動しないようにrefを利用する
+			// とりあえず変数名はcharなのでrefは不要
+			TokenKind::Ident(c) => Node::new_ident(c),
 			TokenKind::Num(v) => Node::new_num(v),
-			_ => current_token.bad_token("number expected"),
+			_ => current_token.bad_token(&format!("number expected, but actual: {:?}", current_token)),
 		}
 	}
 }
@@ -159,10 +190,8 @@ pub fn parse(tokens: Vec<Token>) -> Vec<Node> {
 	// parser内のtokenを走査してく
 	// parser.posは0からはじまるので補正
 	while (parser.tokens.len() - 1) != parser.pos {
-		nodes.push(parser.expr());
+		nodes.push(parser.stmt());
 	}
-
-	//println!("{:#?}", nodes);
 
 	nodes
 }

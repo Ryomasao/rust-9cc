@@ -17,3 +17,26 @@ https://github.com/microsoft/vscode-remote-try-rust
 Rust の書き方、設計がすごい勉強になる！こちらの劣化版をつくってく。
 
 https://github.com/utam0k/r9cc
+
+## gdb メモ
+
+gdb のアセンブラを Intel 記法にする。
+ホーム配下に `.gdbinit`を作成して設定しとく。
+
+```
+cd ~
+echo set disassembly-flavor intel > .gdbinit
+```
+
+```
+& gdb tmp
+
+(gdb) start
+# アセンブリ表示にする
+(gdb) disas
+# アセンブリをステップ実行
+(gdb) ni
+# レジスタの中身を表示
+(gdb) i r
+
+```

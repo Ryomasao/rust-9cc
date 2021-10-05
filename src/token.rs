@@ -1,16 +1,43 @@
-use crate::CharType;
+#[derive(Debug)]
+enum CharType {
+	Whitespace,
+	Num(char),
+	Alphabetic(char),
+	NonAlphabetic(char),
+}
+
+impl CharType {
+	fn new(c: char) -> CharType {
+		if c.is_ascii_whitespace() {
+			return CharType::Whitespace;
+		}
+
+		if c.is_ascii_digit() {
+			return CharType::Num(c);
+		}
+
+		if c.is_ascii_alphabetic() {
+			return CharType::Alphabetic(c);
+		}
+
+		CharType::NonAlphabetic(c)
+	}
+}
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenKind {
+	Num(i32),          // 整数
+	Ident(char),       // 識別子
 	Plus,              // +
 	Minus,             // +
 	Mul,               // *
 	Div,               // /
-	Num(i32),          // 整数
 	LeftParen,         // (
 	RightParen,        // )
 	LeftAngleBracket,  // <
 	RightAngleBracket, // >
+	Assign,            // =
+	SemiColon,         // ;
 	EQ,                // ==
 	NEQ,               // !=
 	LE,                // <=
@@ -53,6 +80,8 @@ impl TokenKind {
 			')' => Some(TokenKind::RightParen),
 			'<' => Some(TokenKind::LeftAngleBracket),
 			'>' => Some(TokenKind::RightAngleBracket),
+			'=' => Some(TokenKind::Assign),
+			';' => Some(TokenKind::SemiColon),
 			_ => None,
 		}
 	}
@@ -103,8 +132,12 @@ impl Tokenizer {
 		'outer: while let Some(c) = self.get_by_pos(self.pos) {
 			match c {
 				CharType::Whitespace => self.pos += 1,
-				//CharType::Alphabetic(c) => {
-				//}
+				CharType::Alphabetic(c) => {
+					// とりあえず変数は、1文字のアルファベット固定
+					let token = Token::new(TokenKind::Ident(c));
+					tokens.push(token);
+					self.pos += 1
+				}
 				CharType::Num(c) => {
 					// これでいいのかふあん
 					// char to i32

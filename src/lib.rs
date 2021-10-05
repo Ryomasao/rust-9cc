@@ -44,11 +44,13 @@ pub fn run(config: &Config) -> Result<()> {
 
 	let mut tokenizer = Tokenizer::new(&contents);
 	let tokens = tokenizer.generate();
+	//println!("tokens:{:#?}", tokens);
 
 	//
 	// 構文木作成
 	//
 	let nodes = parse::parse(tokens);
+	//println!("nodes:{:#?}", nodes);
 
 	//
 	// アセンブリに変換
@@ -61,32 +63,6 @@ pub fn run(config: &Config) -> Result<()> {
 	//
 	output(&result, &config)?;
 	Ok(())
-}
-
-#[derive(Debug)]
-enum CharType {
-	Whitespace,
-	Num(char),
-	//Alphabetic(char),
-	NonAlphabetic(char),
-}
-
-impl CharType {
-	fn new(c: char) -> CharType {
-		if c.is_ascii_whitespace() {
-			return CharType::Whitespace;
-		}
-
-		if c.is_ascii_digit() {
-			return CharType::Num(c);
-		}
-
-		//if c.is_ascii_alphabetic() {
-		//	return CharType::Alphabetic(c);
-		//}
-
-		CharType::NonAlphabetic(c)
-	}
 }
 
 fn output(s: &str, config: &Config) -> Result<()> {
