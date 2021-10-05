@@ -27,7 +27,7 @@ impl CharType {
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenKind {
 	Num(i32),          // 整数
-	Ident(char),       // 識別子
+	Ident(String),     // 識別子
 	Plus,              // +
 	Minus,             // +
 	Mul,               // *
@@ -132,11 +132,28 @@ impl Tokenizer {
 		'outer: while let Some(c) = self.get_by_pos(self.pos) {
 			match c {
 				CharType::Whitespace => self.pos += 1,
-				CharType::Alphabetic(c) => {
-					// とりあえず変数は、1文字のアルファベット固定
-					let token = Token::new(TokenKind::Ident(c));
-					tokens.push(token);
-					self.pos += 1
+				CharType::Alphabetic(_) => {
+					// TODO アルファベットの予約語の判定
+
+					// 予約後じゃなかったら変数
+					let mut pos = self.pos;
+					loop {
+						pos += 1;
+						if let Some(c) = self.get_by_pos(pos) {
+							match c {
+								CharType::Alphabetic(_) => continue,
+								CharType::Num(_) => continue,
+								_ => {
+									let keyword = &self.chars[self.pos..pos];
+									let keyword = keyword.iter().collect();
+									let token = Token::new(TokenKind::Ident(keyword));
+									tokens.push(token);
+									self.pos = pos;
+									continue 'outer;
+								}
+							}
+						}
+					}
 				}
 				CharType::Num(c) => {
 					// これでいいのかふあん

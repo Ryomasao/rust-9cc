@@ -6,7 +6,7 @@ pub enum NodeKind {
 	BinOp(TokenKind, Box<Node>, Box<Node>),
 	// BinOpとは区別することにした
 	Assign(Box<Node>, Box<Node>),
-	Lvar(char, usize), // 左辺値 変数名 offsett
+	Lvar(String, usize), // 左辺値 変数名 offsett
 }
 
 #[derive(Debug)]
@@ -27,14 +27,30 @@ impl Node {
 		Self::new(NodeKind::BinOp(token_kind, Box::new(lhs), Box::new(rhs)))
 	}
 
-	fn new_ident(c: char) -> Self {
+	fn new_ident(s: String, offset: usize) -> Self {
 		// 変数名は1文字で、RBPからのオフセットを文字に応じて固定にしとく
-		let offset = (c as usize - 'a' as usize + 1) * 8;
-		Self::new(NodeKind::Lvar(c, offset))
+		// let offset = (c as usize - 'a' as usize + 1) * 8;
+
+		// self
+		Self::new(NodeKind::Lvar(s, offset))
 	}
 
 	fn new_assign(lhs: Node, rhs: Node) -> Self {
 		Self::new(NodeKind::Assign(Box::new(lhs), Box::new(rhs)))
+	}
+}
+
+struct LVar {
+	// 変数名
+	name: String,
+	// RBPからのオフセット
+	offset: usize,
+}
+
+// newと構造体直接生成どっちがいいんだろうね
+impl LVar {
+	fn new(name: String, offset: usize) -> Self {
+		Self { name, offset }
 	}
 }
 
@@ -44,11 +60,17 @@ struct Parser {
 	tokens: Vec<Token>,
 	// 参照するtokenの現在位置
 	pos: usize,
+	// ローカル変数
+	lvars: Vec<LVar>,
 }
 
 impl Parser {
 	fn new(tokens: Vec<Token>) -> Parser {
-		Parser { tokens, pos: 0 }
+		Parser {
+			tokens,
+			pos: 0,
+			lvars: Vec::new(),
+		}
 	}
 
 	fn consume(&mut self, expect_token_kind: TokenKind) -> bool {
@@ -175,8 +197,15 @@ impl Parser {
 			}
 			// https://doc.rust-jp.rs/book-ja/ch18-03-pattern-syntax.html?highlight=ref#ref%E3%81%A8ref-mut%E3%81%A7%E3%83%91%E3%82%BF%E3%83%BC%E3%83%B3%E3%81%AB%E5%8F%82%E7%85%A7%E3%82%92%E7%94%9F%E6%88%90%E3%81%99%E3%82%8B
 			// Stringの場合、matchした値の所有権が移動しないようにrefを利用する
-			// とりあえず変数名はcharなのでrefは不要
-			TokenKind::Ident(c) => Node::new_ident(c),
+			TokenKind::Ident(ref s) => {
+				if let Some(lvar) = self.lvars.iter().find(|lvar| lvar.name == *s) {
+					Node::new_ident(s.clone(), lvar.offset)
+				} else {
+					let offset = self.lvars.len() * 8 + 8;
+					self.lvars.push(LVar::new(s.clone(), offset));
+					Node::new_ident(s.clone(), offset)
+				}
+			}
 			TokenKind::Num(v) => Node::new_num(v),
 			_ => current_token.bad_token(&format!("number expected, but actual: {:?}", current_token)),
 		}

@@ -21,8 +21,9 @@ pub fn codegen(nodes: Vec<Node>) -> String {
 
 	for node in nodes {
 		gen(&mut s, node);
-		s.push_str("  # 式の評価結果がスタックから溢れないようにする\n");
+		// 式の評価結果がスタックから溢れないようにする
 		s.push_str("  pop rax\n");
+		s.push_str("  # stmt-fin \n");
 	}
 
 	// エピローグ
