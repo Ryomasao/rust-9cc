@@ -1,5 +1,11 @@
 # rust 素振りのために 9cc 再入門
 
+過去の c でやってみたやつ
+
+- https://github.com/Ryomasao/9cc
+
+制御構文手前まで done
+
 ## 環境
 
 こちらを fork して利用している。
