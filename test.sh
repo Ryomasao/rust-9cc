@@ -18,5 +18,6 @@ assert() {
 
 assert 7 src/tests/expr.c
 assert 1 src/tests/comp.c
+assert 2 src/tests/base.c
 
 echo OK

@@ -42,6 +42,7 @@ pub enum TokenKind {
 	NEQ,               // !=
 	LE,                // <=
 	RE,                // >=
+	Return,            // return
 	EOF,               // トークンの終端
 }
 
@@ -49,6 +50,11 @@ struct Symbol {
 	name: &'static str,
 	kind: TokenKind,
 }
+
+const RESERVED_WORDS: [Symbol; 1] = [Symbol {
+	name: "return",
+	kind: TokenKind::Return,
+}];
 
 const SYMBOL_LIST: [Symbol; 4] = [
 	Symbol {
@@ -123,6 +129,28 @@ impl Tokenizer {
 		self.chars.get(pos).map(|c| CharType::new(*c))
 	}
 
+	// 予約語/変数名を取得する
+	fn get_keyword(&self) -> String {
+		let mut pos = self.pos;
+		loop {
+			pos += 1;
+			if let Some(c) = self.get_by_pos(pos) {
+				match c {
+					CharType::Alphabetic(_) => continue,
+					CharType::Num(_) => continue,
+					_ => {
+						let keyword = &self.chars[self.pos..pos];
+						let keyword = keyword.iter().collect::<String>();
+						return keyword;
+					}
+				}
+			} else {
+				// TODO エラー箇所を表示できるようにする
+				panic!("get_keyword error");
+			}
+		}
+	}
+
 	pub fn generate(&mut self) -> Vec<Token> {
 		let mut tokens = Vec::new();
 
@@ -133,27 +161,19 @@ impl Tokenizer {
 			match c {
 				CharType::Whitespace => self.pos += 1,
 				CharType::Alphabetic(_) => {
-					// TODO アルファベットの予約語の判定
+					let keyword = self.get_keyword();
+					let len = keyword.len();
+					// 予約語の判定
+					if let Some(reserved_word) = RESERVED_WORDS.iter().find(|symbol| symbol.name == keyword) {
+						tokens.push(Token::new(reserved_word.kind.clone()));
+						self.pos += reserved_word.name.len();
+						continue 'outer;
+					}
 
 					// 予約後じゃなかったら変数
-					let mut pos = self.pos;
-					loop {
-						pos += 1;
-						if let Some(c) = self.get_by_pos(pos) {
-							match c {
-								CharType::Alphabetic(_) => continue,
-								CharType::Num(_) => continue,
-								_ => {
-									let keyword = &self.chars[self.pos..pos];
-									let keyword = keyword.iter().collect();
-									let token = Token::new(TokenKind::Ident(keyword));
-									tokens.push(token);
-									self.pos = pos;
-									continue 'outer;
-								}
-							}
-						}
-					}
+					let token = Token::new(TokenKind::Ident(keyword));
+					tokens.push(token);
+					self.pos += len;
 				}
 				CharType::Num(c) => {
 					// これでいいのかふあん

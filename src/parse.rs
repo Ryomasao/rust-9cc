@@ -6,7 +6,8 @@ pub enum NodeKind {
 	BinOp(TokenKind, Box<Node>, Box<Node>),
 	// BinOpとは区別することにした
 	Assign(Box<Node>, Box<Node>),
-	Lvar(String, usize), // 左辺値 変数名 offsett
+	LVar(String, usize), // 左辺値 変数名 offsett
+	Return(Box<Node>),
 }
 
 #[derive(Debug)]
@@ -32,11 +33,17 @@ impl Node {
 		// let offset = (c as usize - 'a' as usize + 1) * 8;
 
 		// self
-		Self::new(NodeKind::Lvar(s, offset))
+		Self::new(NodeKind::LVar(s, offset))
 	}
 
+	// new_binopと統合するか悩ましい
+	// codegenでassingとbinopを区別したかったのでわけてる
 	fn new_assign(lhs: Node, rhs: Node) -> Self {
 		Self::new(NodeKind::Assign(Box::new(lhs), Box::new(rhs)))
+	}
+
+	fn new_return(lhs: Node) -> Self {
+		Self::new(NodeKind::Return(Box::new(lhs)))
 	}
 }
 
@@ -94,7 +101,12 @@ impl Parser {
 	}
 
 	fn stmt(&mut self) -> Node {
-		let node = self.expr();
+		let node;
+		if self.consume(TokenKind::Return) {
+			node = Node::new_return(self.expr());
+		} else {
+			node = self.expr();
+		}
 		self.expect(TokenKind::SemiColon);
 		node
 	}

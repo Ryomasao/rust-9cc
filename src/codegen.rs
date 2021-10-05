@@ -91,9 +91,13 @@ pub fn gen(code: &mut String, node: Node) -> &String {
 			return code;
 		}
 		NodeKind::Assign(lhs, rhs) => {
+			// ↓の判定をしたかったので、BinOpとは区別することにした
 			// =の場合、左辺値は必ず変数
-			if let NodeKind::Lvar(_, _) = lhs.kind {
-				gen(code, *lhs);
+			// BinOpの中のTokenKindの中にAssignを生やしたほうがわかりやすいかもしれない
+			// その場合、nodeの所有権がgenにmoveしてしまわないようにする必要がある
+			if let NodeKind::LVar(_, offset) = lhs.kind {
+				let s = gen_lval(offset);
+				code.push_str(&s);
 			} else {
 				panic!("unexpected node: {:?}", lhs)
 			}
@@ -106,10 +110,21 @@ pub fn gen(code: &mut String, node: Node) -> &String {
 			write!(code, "  push rdi\n").unwrap();
 			return code;
 		}
-		NodeKind::Lvar(_, offset) => {
-			write!(code, "  mov rax, rbp\n").unwrap();
-			write!(code, "  sub rax, {}\n", offset).unwrap();
+		// LVarは、AssignNodeのchildとして存在している場合はここにこないので注意。
+		NodeKind::LVar(_, offset) => {
+			let s = gen_lval(offset);
+			code.push_str(&s);
+			write!(code, "  pop rax\n").unwrap();
+			write!(code, "  mov rax, [rax]\n").unwrap();
 			write!(code, "  push rax\n").unwrap();
+			return code;
+		}
+		NodeKind::Return(lhs) => {
+			gen(code, *lhs);
+			write!(code, "  pop rax\n").unwrap();
+			write!(code, "  mov rsp, rbp\n").unwrap();
+			write!(code, "  pop rbp\n").unwrap();
+			write!(code, "  ret\n").unwrap();
 			return code;
 		}
 	}
@@ -118,4 +133,17 @@ pub fn gen(code: &mut String, node: Node) -> &String {
 	write!(code, "  push rax\n").unwrap();
 
 	code
+}
+
+fn gen_lval(offset: usize) -> String {
+	// ベースポインタから指定されたoffsetの値を引いたアドレスをスタックにつんで返す
+	let s = format!(
+		"
+  mov rax, rbp
+	sub rax, {}
+	push rax
+	\n",
+		offset
+	);
+	s
 }
